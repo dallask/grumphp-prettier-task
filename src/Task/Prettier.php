@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Dallask\GrumPHPPrettierTask\Task;
 
@@ -13,93 +15,102 @@ use GrumPHP\Task\Context\GitPreCommitContext;
 use GrumPHP\Task\Context\RunContext;
 use Symfony\Component\OptionsResolver\OptionsResolver;
 
-class Prettier extends AbstractExternalTask
-{
-    public static function getConfigurableOptions(): OptionsResolver
-    {
-      $resolver = new OptionsResolver();
-        $resolver->setDefaults([
-            // Task config options
-            'bin' => null,
-            'triggered_by' => ['css', 'less', 'scss', 'sass', 'pcss'],
-            'allowed_paths' => null,
+/**
+ * Prettier class.
+ *
+ * Provides Prettier functionality plugin for GrumPHP.
+ */
+class Prettier extends AbstractExternalTask {
 
-            // prettier config options
-            'config' => null,
-        ]);
+  /**
+   * Doc section.
+   */
+  public static function getConfigurableOptions(): OptionsResolver {
+    $resolver = new OptionsResolver();
+    $resolver->setDefaults([
+          // Task config options.
+      'bin' => NULL,
+      'triggered_by' => ['css', 'less', 'scss', 'sass', 'pcss'],
+      'allowed_paths' => NULL,
 
-        // Task config options
-        $resolver->addAllowedTypes('bin', ['null', 'string', 'array']);
-        $resolver->addAllowedTypes('allowed_paths', ['null', 'array']);
-        $resolver->addAllowedTypes('triggered_by', ['array']);
+          // Prettier config options.
+      'config' => NULL,
+    ]);
 
-        // prettier config options
-        $resolver->addAllowedTypes('config', ['null', 'string']);
+    // Task config options.
+    $resolver->addAllowedTypes('bin', ['null', 'string', 'array']);
+    $resolver->addAllowedTypes('allowed_paths', ['null', 'array']);
+    $resolver->addAllowedTypes('triggered_by', ['array']);
 
-        return $resolver;
+    // Prettier config options.
+    $resolver->addAllowedTypes('config', ['null', 'string']);
+
+    return $resolver;
+  }
+
+  /**
+   * Doc section.
+   */
+  public function canRunInContext(ContextInterface $context): bool {
+    return ($context instanceof GitPreCommitContext || $context instanceof RunContext);
+  }
+
+  /**
+   * Doc section.
+   */
+  public function run(ContextInterface $context): TaskResultInterface {
+    $config = $this->getConfig()->getOptions();
+
+    $files = $context
+      ->getFiles()
+      ->paths($config['allowed_paths'] ?? [])
+      ->extensions($config['triggered_by']);
+
+    if (0 === \count($files)) {
+      return TaskResult::createSkipped($this, $context);
     }
 
-    public function canRunInContext(ContextInterface $context): bool
-    {
-        return ($context instanceof GitPreCommitContext || $context instanceof RunContext);
-    }
-
-    public function run(ContextInterface $context): TaskResultInterface
-    {
-      $config = $this->getConfig()->getOptions();
-
-        $files = $context
-            ->getFiles()
-            ->paths($config['allowed_paths'] ?? [])
-            ->extensions($config['triggered_by']);
-
-        if (0 === \count($files)) {
-            return TaskResult::createSkipped($this, $context);
-        }
-
-        $arguments = isset($config['bin'])
+    $arguments = isset($config['bin'])
             ? array_reduce(
-                is_array($config['bin']) ? $config['bin'] : [$config['bin']],
-                static function ($carry, $item): ProcessArgumentsCollection {
-                    if ($carry instanceof ProcessArgumentsCollection) {
-                        $carry->add($item);
-                        return $carry;
-                    }
-
-                    return ProcessArgumentsCollection::forExecutable($item);
+              is_array($config['bin']) ? $config['bin'] : [$config['bin']],
+              static function ($carry, $item): ProcessArgumentsCollection {
+                if ($carry instanceof ProcessArgumentsCollection) {
+                    $carry->add($item);
+                    return $carry;
                 }
-            )
+
+                  return ProcessArgumentsCollection::forExecutable($item);
+              }
+          )
             : $this->processBuilder->createArgumentsForCommand('prettier');
 
+    $arguments->addOptionalArgument('--config=%s', $config['config']);
+    $arguments->add('--check');
 
+    $arguments->addFiles($files);
 
-        $arguments->addOptionalArgument('--config=%s', $config['config']);
-        $arguments->add('--check');
+    $process = $this->processBuilder->buildProcess($arguments);
+    $process->run();
 
+    if (!$process->isSuccessful()) {
+      $arguments->add('--write');
+      $fixerCommand = $this->processBuilder
+        ->buildProcess($arguments)
+        ->getCommandLine();
 
-        $arguments->addFiles($files);
+      $message = sprintf(
+            '%sYou can fix errors by running the following command:%s',
+            $this->formatter->format($process) . PHP_EOL . PHP_EOL,
+            PHP_EOL . $fixerCommand
+        );
 
-        $process = $this->processBuilder->buildProcess($arguments);
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            $arguments->add('--write');
-            $fixerCommand = $this->processBuilder
-                ->buildProcess($arguments)
-                ->getCommandLine();
-
-            $message = sprintf(
-                '%sYou can fix errors by running the following command:%s',
-                $this->formatter->format($process) . PHP_EOL . PHP_EOL,
-                PHP_EOL . $fixerCommand
-            );
-
-            return new FixableTaskResult(
-                TaskResult::createFailed($this, $context, $message),
-                FixableProcessProvider::provide($fixerCommand)
-            );
-        }
-
-        return TaskResult::createPassed($this, $context);
+      return new FixableTaskResult(
+            TaskResult::createFailed($this, $context, $message),
+            FixableProcessProvider::provide($fixerCommand)
+        );
     }
+
+    return TaskResult::createPassed($this, $context);
+  }
+
 }
