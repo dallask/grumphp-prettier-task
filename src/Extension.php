@@ -1,9 +1,9 @@
 <?php declare(strict_types=1);
 
-namespace Dallask\TotalChecker;
+namespace Dallask\GrumPHPPrettierTask;
 
 use GrumPHP\Extension\ExtensionInterface;
-use Dallask\TotalChecker\Task\Prettier;
+use Dallask\GrumPHPPrettierTask\Task\Prettier;
 use Symfony\Component\DependencyInjection\ContainerBuilder;
 use Symfony\Component\DependencyInjection\Reference;
 

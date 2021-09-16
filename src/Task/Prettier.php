@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-namespace Dallask\TotalChecker\Task;
+namespace Dallask\GrumPHPPrettierTask\Task;
 
 use GrumPHP\Collection\ProcessArgumentsCollection;
 use GrumPHP\Fixer\Provider\FixableProcessProvider;
