@@ -3,6 +3,12 @@
     "description": "A GrumPHP extension that adds Prettier support with stylelint.",
     "type": "library",
     "license": "MIT",
+    "authors": [
+        {
+            "name": "Ievgen Kyvgyla",
+            "email": "hello@kivgila.pro"
+        }
+    ],
     "require": {
         "phpro/grumphp": "~0.19 || ^1.3"
     },
